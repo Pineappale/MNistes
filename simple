@@ -1,0 +1,58 @@
+import tensorflow as tf
+import numpy as np
+import struct
+from tensorflow.examples.tutorials.mnist import input_data
+
+#导入数据集，训练集55000测试集10000验证集5000，每个样本都有其标注信息
+#mnist.train.images训练集784一维数据,mnist.train.lables训练集一维标签
+#mnist.test.images,mnist.test.lables
+#mnist.validation.images,mnist.validation.lables
+minist=input_data.read_data_sets("/MNIST_data/",one_hot=True)
+
+
+
+#解析minist标签数据
+def decode_indx1_ubyte(indx1_ubyte_file):
+
+    bin_data=open(indx1_ubyte_file,'rb').read()
+
+    #解析文件头
+    offset=0
+    fmt_header='>ii'
+    magic_number,num_images=struct.unpack_from(fmt_header,bin_data,offset)
+    print('魔数：%d，图片数：%d张'% (magic_number,num_images))
+
+
+    offset +=struct.calcsize(fmt_header)
+    fmt_image='>B'
+    labels=np.empty(num_images)
+    for i in range(num_images):
+        if (i+1)%10000==0:
+            print('已解析%d'% (i+1)+'张')
+            print(offset)
+        labels[i]=struct.unpack_from(fmt_image,bin_data,offset)[0]
+        offset+=struct.calcsize(fmt_image)
+    return labels
+
+
+
+
+sess=tf.InteractiveSession()
+x=tf.placeholder(tf.float32,[None,784])#1*784
+w=tf.Variable(tf.zeros([784,10]))#784*10
+b=tf.Variable(tf.zeros([10]))#1*10
+
+y=tf.nn.softmax(tf.matmul(x,w)+b)
+
+y_=tf.placeholder(tf.float32,[None,10])
+#tf.reduce_sum就是求和，tf.reduce_mean就是对每个batch数据结果求均值
+cross_entropy=tf.reduce_mean(-tf.reduce_sum(y_*tf.log(y),reduction_indices=[1]))
+#采用随机梯度SGD，学习率为0.5，优化目标为cross_entropy
+train_step=tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
+#tf.global_variables_initializer()全局变量初始化器
+tf.global_variables_initializer().run()
+
+#开始迭代
+for i in range(1000):
+    batch_xs,batch_ys=mnist.train.next_batch(100)
+    train_step.run({x:batch_xs,y_:batch_ys})
